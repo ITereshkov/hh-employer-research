@@ -13,10 +13,13 @@ from .aggregation import EmployerRecord, SignalMetrics
 logger = logging.getLogger(__name__)
 
 
-def _employer_rows(records: list[EmployerRecord], metrics: dict[int, SignalMetrics]):
+def _employer_rows(records: list[EmployerRecord], metrics: dict[int, SignalMetrics],
+                   enriched: dict[int, dict] | None = None):
+    enriched = enriched or {}
     rows = []
     for r in records:
         m = metrics.get(r.employer_id, SignalMetrics())
+        e = enriched.get(r.employer_id, {})
         rows.append({
             "employer_id": r.employer_id,
             "employer_name": r.employer_name,
@@ -41,6 +44,13 @@ def _employer_rows(records: list[EmployerRecord], metrics: dict[int, SignalMetri
             "multi_role_signal": m.multi_role_signal,
             "research_signal_score": m.research_signal_score,
             "score_explanation": m.score_explanation,
+            "official_website": e.get("official_website", ""),
+            "official_phone": e.get("official_phone", ""),
+            "official_email": e.get("official_email", ""),
+            "official_address": e.get("official_address", ""),
+            "facility_contact_phone": e.get("facility_contact_phone", ""),
+            "facility_contact_email": e.get("facility_contact_email", ""),
+            "enrichment_signal_score": e.get("signal_score", ""),
         })
     return rows
 
@@ -70,14 +80,33 @@ def _vacancy_rows(records: list[EmployerRecord]):
     return rows
 
 
+def _contact_rows(all_contacts: list[dict]) -> list[dict]:
+    rows = []
+    for c in all_contacts:
+        rows.append({
+            "employer_id": c.get("employer_id", ""),
+            "employer_name": c.get("employer_name", ""),
+            "contact_type": c.get("contact_type", ""),
+            "value": c.get("value", ""),
+            "source_url": c.get("source_url", ""),
+            "source_type": c.get("source_type", ""),
+            "confidence": c.get("confidence", 0.0),
+            "is_primary": bool(c.get("is_primary", 0)),
+            "is_facility": bool(c.get("is_facility", 0)),
+            "retrieved_at": c.get("retrieved_at", ""),
+        })
+    return rows
+
+
 def export_csv(records: list[EmployerRecord], metrics: dict[int, SignalMetrics],
-               export_dir: str, prefix: str = "research") -> tuple[str, str]:
+               export_dir: str, prefix: str = "research",
+               enriched: dict[int, dict] | None = None) -> tuple[str, str]:
     out = Path(export_dir)
     out.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
     emp_path = out / f"{prefix}_employers_{ts}.csv"
-    emp_rows = _employer_rows(records, metrics)
+    emp_rows = _employer_rows(records, metrics, enriched)
     if emp_rows:
         keys = list(emp_rows[0].keys())
         with open(emp_path, "w", newline="", encoding="utf-8-sig") as f:
@@ -99,15 +128,18 @@ def export_csv(records: list[EmployerRecord], metrics: dict[int, SignalMetrics],
 
 
 def export_json(records: list[EmployerRecord], metrics: dict[int, SignalMetrics],
-                export_dir: str, prefix: str = "research") -> str:
+                export_dir: str, prefix: str = "research",
+                enriched: dict[int, dict] | None = None) -> str:
     out = Path(export_dir)
     out.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     path = out / f"{prefix}_{ts}.json"
+    enriched = enriched or {}
 
     data = []
     for r in records:
         m = metrics.get(r.employer_id, SignalMetrics())
+        e = enriched.get(r.employer_id, {})
         data.append({
             "employer_id": r.employer_id,
             "employer_name": r.employer_name,
@@ -122,6 +154,15 @@ def export_json(records: list[EmployerRecord], metrics: dict[int, SignalMetrics]
             "relevant_open_vacancies": r.relevant_open_vacancies,
             "latest_relevant_vacancy_date": r.latest_relevant_vacancy_date,
             "days_since_latest": r.days_since_latest,
+            "contacts": {
+                "website": e.get("official_website"),
+                "phone": e.get("official_phone"),
+                "email": e.get("official_email"),
+                "address": e.get("official_address"),
+                "facility_phone": e.get("facility_contact_phone"),
+                "facility_email": e.get("facility_contact_email"),
+            },
+            "enrichment_signal_score": e.get("signal_score"),
             "relevant_vacancies": [
                 {
                     "vacancy_id": v.vacancy_id,
@@ -157,7 +198,9 @@ def export_json(records: list[EmployerRecord], metrics: dict[int, SignalMetrics]
 
 def export_xlsx(records: list[EmployerRecord], metrics: dict[int, SignalMetrics],
                 export_dir: str, run_summary: dict | None = None,
-                prefix: str = "research") -> str:
+                prefix: str = "research",
+                enriched: dict[int, dict] | None = None,
+                all_contacts: list[dict] | None = None) -> str:
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -167,12 +210,13 @@ def export_xlsx(records: list[EmployerRecord], metrics: dict[int, SignalMetrics]
     out.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     path = out / f"{prefix}_{ts}.xlsx"
+    enriched = enriched or {}
 
     wb = Workbook()
 
     ws_emp = wb.active
     ws_emp.title = "Employers"
-    emp_rows = _employer_rows(records, metrics)
+    emp_rows = _employer_rows(records, metrics, enriched)
     if emp_rows:
         headers = list(emp_rows[0].keys())
         ws_emp.append(headers)
@@ -188,6 +232,16 @@ def export_xlsx(records: list[EmployerRecord], metrics: dict[int, SignalMetrics]
         for row in vac_rows:
             ws_vac.append([row[h] for h in headers])
         _style_sheet(ws_vac, headers)
+
+    if all_contacts:
+        ws_contacts = wb.create_sheet("Contacts")
+        contact_rows = _contact_rows(all_contacts)
+        if contact_rows:
+            headers = list(contact_rows[0].keys())
+            ws_contacts.append(headers)
+            for row in contact_rows:
+                ws_contacts.append([row[h] for h in headers])
+            _style_sheet(ws_contacts, headers)
 
     ws_sum = wb.create_sheet("Run Summary")
     summary = run_summary or {}

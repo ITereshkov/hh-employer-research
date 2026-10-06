@@ -206,6 +206,15 @@ def cmd_employer(args):
     print(f"Total vacancies: {emp.get('total_open_vacancies')}")
     print(f"Relevant vacancies: {emp.get('relevant_open_vacancies')}")
     print(f"URL: {emp.get('url')}")
+    print(f"Enrichment: {emp.get('enrichment_status') or 'pending'}")
+    if emp.get('official_website'):
+        print(f"Website: {emp['official_website']}")
+    if emp.get('official_phone'):
+        print(f"Phone: {emp['official_phone']}")
+    if emp.get('official_email'):
+        print(f"Email: {emp['official_email']}")
+    if emp.get('facility_contact_phone'):
+        print(f"Facility phone: {emp['facility_contact_phone']}")
 
     vacs = storage.get_relevant_vacancies(snapshot_id)
     emp_vacs = [v for v in vacs if v["employer_id"] == args.employer_id]
@@ -216,7 +225,58 @@ def cmd_employer(args):
             print(f"    URL: {v.get('url')}")
             print(f"    Terms: {v.get('matched_terms')}")
             print(f"    Reason: {v.get('match_reason')}")
+
+    contacts = storage.get_contacts(args.employer_id)
+    if contacts:
+        print(f"\nContacts ({len(contacts)}):")
+        for c in contacts:
+            fac = " [АХО]" if c.get("is_facility") else ""
+            pri = " [primary]" if c.get("is_primary") else ""
+            print(f"  {c['contact_type']}: {c['value']} (conf: {c.get('confidence', 0):.2f}, src: {c.get('source_type', '')}){fac}{pri}")
+
     storage.close()
+
+
+def cmd_enrich(args):
+    config = ResearchConfig.load(args.config)
+    from .api_client import HHApiClient
+    from .enrichment.pipeline import EnrichmentPipeline
+
+    api = HHApiClient(config.api, config.storage)
+    storage = Storage(config.storage.db_path)
+    pipeline = EnrichmentPipeline(api, storage, ttl_hours=args.ttl)
+
+    if args.employer_id:
+        result = pipeline.enrich_single(args.employer_id)
+        print(f"Enrichment result: {json.dumps(result, ensure_ascii=False, indent=2)}")
+    else:
+        result = pipeline.enrich_batch(limit=args.limit)
+        print(f"\nEnrichment batch complete:")
+        for k, v in result.items():
+            print(f"  {k}: {v}")
+
+    storage.commit()
+    storage.close()
+
+
+def cmd_enrichment_stats(args):
+    config = ResearchConfig.load(args.config)
+    storage = Storage(config.storage.db_path)
+    stats = storage.get_enrichment_stats()
+    print("Enrichment statistics:")
+    for k, v in stats.items():
+        print(f"  {k}: {v}")
+    storage.close()
+
+
+def cmd_dashboard(args):
+    import subprocess
+    dashboard_path = str(Path(__file__).parent / "dashboard" / "app.py")
+    cmd = [sys.executable, "-m", "streamlit", "run", dashboard_path]
+    if args.port:
+        cmd.extend(["--server.port", str(args.port)])
+    print(f"Starting dashboard: {' '.join(cmd)}")
+    subprocess.run(cmd)
 
 
 def main():
@@ -244,6 +304,16 @@ def main():
     p_emp.add_argument("employer_id", type=int)
     p_emp.add_argument("--snapshot", type=int, help="Snapshot ID")
 
+    p_enrich = sub.add_parser("enrich", help="Enrich employers with contacts")
+    p_enrich.add_argument("--employer-id", type=int, default=None, help="Single employer ID")
+    p_enrich.add_argument("--limit", type=int, default=100, help="Max employers to enrich")
+    p_enrich.add_argument("--ttl", type=float, default=24.0, help="TTL in hours")
+
+    p_estats = sub.add_parser("enrichment-stats", help="Show enrichment statistics")
+
+    p_dash = sub.add_parser("dashboard", help="Launch Streamlit dashboard")
+    p_dash.add_argument("--port", type=int, default=None, help="Dashboard port")
+
     args = parser.parse_args()
     _setup_logging(args.verbose)
 
@@ -255,6 +325,12 @@ def main():
         cmd_stats(args)
     elif args.command == "employer":
         cmd_employer(args)
+    elif args.command == "enrich":
+        cmd_enrich(args)
+    elif args.command == "enrichment-stats":
+        cmd_enrichment_stats(args)
+    elif args.command == "dashboard":
+        cmd_dashboard(args)
     else:
         parser.print_help()
 

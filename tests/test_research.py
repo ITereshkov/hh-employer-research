@@ -421,3 +421,138 @@ class TestConfig:
     def test_area_filtering(self):
         cfg = ResearchConfig.from_dict({"areas": [1, 2, 3]})
         assert cfg.areas.ids == [1, 2, 3]
+
+
+# ── Contact Resolver ──────────────────────────────────────────────────
+
+
+class TestContactResolver:
+    def test_deduplicate_phones(self):
+        from hh_research.enrichment.resolver import ContactResolver
+        from hh_research.enrichment.sources.base import ContactData
+
+        contacts = [
+            ContactData("phone", "+79161234567", "url1", "src1", 0.8),
+            ContactData("phone", "+7(916)123-45-67", "url2", "src2", 0.9),
+            ContactData("phone", "+79991112233", "url3", "src3", 0.7),
+        ]
+        resolver = ContactResolver()
+        resolved = resolver.resolve(contacts)
+        phones = [c for c in resolved if c.contact_type == "phone"]
+        assert len(phones) == 2
+        primary = [c for c in phones if c.is_primary]
+        assert len(primary) == 1
+        assert primary[0].confidence == 0.9
+
+    def test_deduplicate_emails(self):
+        from hh_research.enrichment.resolver import ContactResolver
+        from hh_research.enrichment.sources.base import ContactData
+
+        contacts = [
+            ContactData("email", "Test@Example.COM", "url1", "src1", 0.8),
+            ContactData("email", "test@example.com", "url2", "src2", 0.9),
+        ]
+        resolver = ContactResolver()
+        resolved = resolver.resolve(contacts)
+        emails = [c for c in resolved if c.contact_type == "email"]
+        assert len(emails) == 1
+        assert emails[0].confidence == 0.9
+
+    def test_deduplicate_websites(self):
+        from hh_research.enrichment.resolver import ContactResolver
+        from hh_research.enrichment.sources.base import ContactData
+
+        contacts = [
+            ContactData("website", "https://www.example.com/", "url1", "src1", 0.8),
+            ContactData("website", "https://example.com", "url2", "src2", 0.9),
+        ]
+        resolver = ContactResolver()
+        resolved = resolver.resolve(contacts)
+        sites = [c for c in resolved if c.contact_type == "website"]
+        assert len(sites) == 1
+
+    def test_signal_score_computation(self):
+        from hh_research.enrichment.resolver import ContactResolver, ResolvedContact
+
+        employer = {"relevant_open_vacancies": 3, "description": "some desc"}
+        contacts = [
+            ResolvedContact("website", "example.com", 0.9, "", "", True),
+            ResolvedContact("phone", "+79161234567", 0.8, "", "", True),
+            ResolvedContact("email", "test@example.com", 0.7, "", "", True),
+        ]
+        score = ContactResolver.compute_signal_score(employer, contacts)
+        assert score > 0
+        assert score <= 1.0
+
+    def test_signal_score_with_facility(self):
+        from hh_research.enrichment.resolver import ContactResolver, ResolvedContact
+
+        employer = {"relevant_open_vacancies": 1}
+        contacts_no_fac = [
+            ResolvedContact("phone", "+79161234567", 0.8, "", "", True, is_facility=False),
+        ]
+        contacts_fac = [
+            ResolvedContact("phone", "+79161234567", 0.8, "", "", True, is_facility=True),
+        ]
+        score_no = ContactResolver.compute_signal_score(employer, contacts_no_fac)
+        score_fac = ContactResolver.compute_signal_score(employer, contacts_fac)
+        assert score_fac > score_no
+
+
+# ── Enrichment Storage ────────────────────────────────────────────────
+
+
+class TestEnrichmentStorage:
+    @pytest.fixture
+    def db(self, tmp_path):
+        s = Storage(str(tmp_path / "test.db"))
+        yield s
+        s.close()
+
+    def test_upsert_and_get_contacts(self, db):
+        db.upsert_employer({"id": 500, "name": "Test", "raw": {}})
+        db.upsert_contact(500, "phone", "+79161234567", "url", "src", 0.9, True, False)
+        db.upsert_contact(500, "email", "test@example.com", "url", "src", 0.8, True, False)
+        db.commit()
+        contacts = db.get_contacts(500)
+        assert len(contacts) == 2
+
+    def test_contact_dedup_on_conflict(self, db):
+        db.upsert_employer({"id": 501, "name": "Test", "raw": {}})
+        db.upsert_contact(501, "phone", "+79161234567", "url1", "src1", 0.5)
+        db.upsert_contact(501, "phone", "+79161234567", "url2", "src2", 0.9)
+        db.commit()
+        contacts = db.get_contacts(501)
+        phones = [c for c in contacts if c["contact_type"] == "phone"]
+        assert len(phones) == 1
+        assert phones[0]["confidence"] == 0.9
+
+    def test_update_employer_enrichment(self, db):
+        db.upsert_employer({"id": 502, "name": "Test", "raw": {}})
+        db.commit()
+        db.update_employer_enrichment(502, "done", ttl_hours=24, signal_score=0.75,
+                                       contacts={"official_website": "example.com"})
+        db.commit()
+        row = db.conn.execute("SELECT * FROM employers WHERE id=502").fetchone()
+        assert dict(row)["enrichment_status"] == "done"
+        assert dict(row)["official_website"] == "example.com"
+
+    def test_enrichment_stats(self, db):
+        db.upsert_employer({"id": 503, "name": "A", "raw": {}})
+        db.upsert_employer({"id": 504, "name": "B", "raw": {}})
+        db.update_employer_enrichment(503, "done", signal_score=0.5,
+                                       contacts={"official_website": "a.com", "official_phone": "+7111"})
+        db.commit()
+        stats = db.get_enrichment_stats()
+        assert stats["employers_total"] == 2
+        assert stats["enriched"] == 1
+        assert stats["with_website"] == 1
+        assert stats["with_phone"] == 1
+
+    def test_log_enrichment(self, db):
+        db.upsert_employer({"id": 505, "name": "Test", "raw": {}})
+        db.log_enrichment(505, "hh_employer", "success", "contacts=3")
+        db.commit()
+        row = db.conn.execute("SELECT * FROM enrichment_log WHERE employer_id=505").fetchone()
+        assert row is not None
+        assert dict(row)["source_name"] == "hh_employer"
