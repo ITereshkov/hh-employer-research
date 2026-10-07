@@ -1,0 +1,113 @@
+discovery:
+  areas:
+    - 1    # Москва
+    - 2    # Санкт-Петербург
+  per_page: 100
+  max_pages_per_query: 20
+  max_total_vacancies: 5000
+  delay: 0.3
+
+query_taxonomy:
+  cleaning:
+    - уборщик
+    - уборщица
+    - уборщик помещений
+    - уборщик служебных помещений
+    - уборщик производственных помещений
+    - уборщик производственных и служебных помещений
+    - уборка помещений
+  facility:
+    - рабочий по комплексному обслуживанию
+    - рабочий по комплексному обслуживанию зданий
+    - рабочий по комплексному обслуживанию и ремонту зданий
+    - рабочий по обслуживанию здания
+    - рабочий по эксплуатации зданий
+    - технический работник
+    - хозяйственный рабочий
+  janitorial:
+    - дворник
+
+exclusions:
+  terms:
+    - кухонный рабочий
+    - подсобный рабочий на производство
+    - складской рабочий
+    - рабочий склада
+    - грузчик
+    - санитар
+    - санитарка
+    - горничная
+    - мойщик посуды
+    - автомойщик
+    - мойщик автомобилей
+    - комплектовщик
+    - кладовщик
+    - разнорабочий
+    - оператор
+    - медицинская сестра
+    - врач
+    - преподаватель
+    - учитель
+    - торговый представитель
+    - продавец
+    - повар
+    - кондитер
+  threshold: 0.2
+
+scoring:
+  weight_per_vacancy: 1.0
+  weight_fresh_7d: 2.0
+  weight_fresh_30d: 1.0
+  weight_unique_role: 1.5
+  weight_unique_location: 1.5
+  weight_multi_location: 3.0
+  weight_repeat_signal: 2.0
+  threshold_high: 8.0
+  threshold_medium: 4.0
+
+enrichment_cohort:
+  min_signal_score: 0.0
+  signal_levels:
+    - HIGH
+  max_employers: 50
+  include_top_medium: 0
+
+cleaning_provider:
+  name_keywords:
+    - клининг
+    - cleaning
+    - клининговая
+    - клининго
+    - уборка профессиональная
+    - профессиональная уборка
+    - сервис уборки
+    - сервис клинин
+    - чистый
+    - чистота сервис
+    - facility management
+    - facility services
+    - обслуживание зданий
+    - управление объектами
+  industry_keywords:
+    - клининг
+    - cleaning
+    - уборка
+    - facility management
+    - facility services
+    - обслуживание зданий
+
+api:
+  base_url: https://api.hh.ru
+  per_page: 100
+  max_pages: 20
+  delay: 0.3
+  timeout: 30
+  max_retries: 3
+  user_agent: "HHResearchBot/1.0 (ivan-research@mail.ru)"
+
+storage:
+  db_path: data/cleaning_signal.db
+  cache_dir: data/cache
+  cache_ttl_hours: 6
+
+export_dir: exports

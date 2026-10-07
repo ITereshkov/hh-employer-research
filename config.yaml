@@ -1,0 +1,29 @@
+search:
+  per_page: 100
+  max_pages: 20
+  search_field: "name"
+
+enrichment:
+  enabled: true
+  ttl_hours: 168
+  max_concurrent: 3
+  batch_size: 50
+  request_timeout: 15.0
+  sources_priority:
+    - hh_employer
+    - website
+    - directory
+
+database:
+  path: "data/hh_parser.db"
+  wal_mode: true
+
+rate_limit:
+  requests_per_minute: 25
+  requests_per_day: 1800
+  retry_after_seconds: 60
+  max_retries: 3
+
+log_level: "INFO"
+data_dir: "data"
+reports_dir: "reports"

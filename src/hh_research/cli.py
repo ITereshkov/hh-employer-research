@@ -269,6 +269,252 @@ def cmd_enrichment_stats(args):
     storage.close()
 
 
+def cmd_collect_cleaning(args):
+    from .cleaning_signal.config import CleaningSignalConfig
+    from .cleaning_signal.pipeline import CleaningSignalPipeline
+
+    config = CleaningSignalConfig.load(args.config)
+    pipeline = CleaningSignalPipeline(config)
+    try:
+        summary = pipeline.run()
+        print("\nSummary:")
+        for k, v in summary.items():
+            if k == "top_employers":
+                print(f"  {k}:")
+                for emp in v:
+                    print(
+                        f"    [{emp['employer_id']}] {emp['employer_name']} "
+                        f"score={emp['signal_score']:.1f} ({emp['signal_level']}) "
+                        f"vacancies={emp['relevant_count']}"
+                    )
+            else:
+                print(f"  {k}: {v}")
+    finally:
+        pipeline.close()
+
+
+def cmd_rank_cleaning(args):
+    from .cleaning_signal.config import CleaningSignalConfig
+
+    config = CleaningSignalConfig.load(args.config)
+    storage = Storage(config.storage.db_path)
+    snapshot_id = args.snapshot or storage.get_latest_snapshot_id()
+    if not snapshot_id:
+        print("No snapshots found.")
+        sys.exit(1)
+
+    info = storage.get_snapshot_info(snapshot_id)
+    print(f"Snapshot {snapshot_id}: {info}")
+
+    all_emps = storage.get_all_employers(snapshot_id)
+    relevant_vacs = storage.get_relevant_vacancies(snapshot_id)
+
+    vac_by_emp: dict[int, int] = {}
+    for v in relevant_vacs:
+        vac_by_emp[v["employer_id"]] = vac_by_emp.get(v["employer_id"], 0) + 1
+
+    sorted_emps = sorted(
+        all_emps,
+        key=lambda e: e.get("signal_score", 0) or 0,
+        reverse=True,
+    )
+
+    high = [e for e in sorted_emps if (e.get("signal_score", 0) or 0) >= 8.0]
+    medium = [e for e in sorted_emps if 4.0 <= (e.get("signal_score", 0) or 0) < 8.0]
+    low = [e for e in sorted_emps if (e.get("signal_score", 0) or 0) < 4.0]
+
+    print(f"\nEmployers total: {len(all_emps)}")
+    print(f"  HIGH signal: {len(high)}")
+    print(f"  MEDIUM signal: {len(medium)}")
+    print(f"  LOW signal: {len(low)}")
+    print(f"Relevant vacancies: {len(relevant_vacs)}")
+
+    providers = [e for e in sorted_emps if e.get("classification") == "CLEANING_COMPANY"]
+    print(f"Cleaning providers (excluded from outreach): {len(providers)}")
+
+    print("\nTop employers by signal score:")
+    for e in sorted_emps[:20]:
+        score = e.get("signal_score", 0) or 0
+        rel = vac_by_emp.get(e["id"], 0)
+        cat = e.get("classification", "OTHER")
+        area = e.get("area_name", "")
+        print(
+            f"  [{e['id']}] {e['name']}"
+            f"  score={score:.1f}  vacancies={rel}  cat={cat}  area={area}"
+        )
+
+    storage.close()
+
+
+def cmd_enrich_cleaning(args):
+    from .cleaning_signal.config import CleaningSignalConfig
+    from .cleaning_signal.aggregation import EmployerAggregate, select_enrichment_cohort
+    from .cleaning_signal.classifier import EmployerCategory
+    from .api_client import HHApiClient
+    from .enrichment.pipeline import EnrichmentPipeline
+
+    config = CleaningSignalConfig.load(args.config)
+    api = HHApiClient(config.api, config.storage)
+    storage = Storage(config.storage.db_path)
+    enrichment = EnrichmentPipeline(api, storage, ttl_hours=args.ttl)
+
+    snapshot_id = args.snapshot or storage.get_latest_snapshot_id()
+    if not snapshot_id:
+        print("No snapshots found.")
+        sys.exit(1)
+
+    all_emps = storage.get_all_employers(snapshot_id)
+    employers_map: dict[int, EmployerAggregate] = {}
+    for emp in all_emps:
+        eid = emp["id"]
+        try:
+            cat = EmployerCategory(emp.get("classification", "OTHER"))
+        except ValueError:
+            cat = EmployerCategory.OTHER
+        employers_map[eid] = EmployerAggregate(
+            employer_id=eid,
+            employer_name=emp["name"],
+            employer_hh_url=emp.get("url"),
+            employer_category=cat,
+            signal_score=emp.get("signal_score", 0) or 0,
+        )
+
+    cohort_ids = select_enrichment_cohort(
+        employers_map,
+        config.enrichment_cohort.signal_levels,
+        args.limit or config.enrichment_cohort.max_employers,
+        config.enrichment_cohort.min_signal_score,
+        config.enrichment_cohort.include_top_medium,
+    )
+
+    print(f"Enrichment cohort: {len(cohort_ids)} employers from snapshot {snapshot_id}")
+
+    successful = 0
+    failed = 0
+    for eid in cohort_ids:
+        try:
+            result = enrichment.enrich_single(eid)
+            if result.get("success"):
+                successful += 1
+                contacts = result.get("contacts", [])
+                print(f"  [{eid}] OK — {len(contacts)} contacts")
+            else:
+                failed += 1
+                print(f"  [{eid}] FAILED")
+        except Exception as e:
+            failed += 1
+            print(f"  [{eid}] ERROR: {e}")
+
+    storage.commit()
+    print(f"\nEnrichment done: {successful} ok, {failed} failed")
+    storage.close()
+
+
+def cmd_export_cleaning(args):
+    from .cleaning_signal.config import CleaningSignalConfig
+    from .cleaning_signal.aggregation import (
+        EmployerAggregate,
+        VacancySummary,
+    )
+    from .cleaning_signal.classifier import EmployerCategory, RoleCategory
+    from .cleaning_signal.export import export_cleaning_xlsx
+
+    config = CleaningSignalConfig.load(args.config)
+    storage = Storage(config.storage.db_path)
+    snapshot_id = args.snapshot or storage.get_latest_snapshot_id()
+    if not snapshot_id:
+        print("No snapshots found.")
+        sys.exit(1)
+
+    all_emps = storage.get_all_employers(snapshot_id)
+    relevant_vacs = storage.get_relevant_vacancies(snapshot_id)
+
+    vac_by_emp: dict[int, list[dict]] = {}
+    for v in relevant_vacs:
+        vac_by_emp.setdefault(v["employer_id"], []).append(v)
+
+    employers: list[EmployerAggregate] = []
+    for emp in all_emps:
+        eid = emp["id"]
+        try:
+            cat = EmployerCategory(emp.get("classification", "OTHER"))
+        except ValueError:
+            cat = EmployerCategory.OTHER
+
+        emp_vacs = vac_by_emp.get(eid, [])
+        summaries = []
+        for v in emp_vacs:
+            matched_terms = json.loads(v.get("matched_terms", "[]"))
+            role_cat = RoleCategory.OTHER_RELEVANT
+            summaries.append(VacancySummary(
+                vacancy_id=v["id"],
+                name=v["name"],
+                url=v.get("url"),
+                published_at=v.get("published_at"),
+                role_category=role_cat,
+                matched_terms=matched_terms,
+                relevance_score=v.get("relevance_score", 0.0),
+                area_id=v.get("area_id"),
+                area_name=v.get("area_name"),
+                salary_from=v.get("salary_from"),
+                salary_to=v.get("salary_to"),
+                currency=v.get("currency"),
+            ))
+
+        area_name = emp.get("area_name", "")
+        regions = [r.strip() for r in area_name.split("|")] if area_name else []
+
+        agg = EmployerAggregate(
+            employer_id=eid,
+            employer_name=emp["name"],
+            employer_hh_url=emp.get("url"),
+            employer_category=cat,
+            employer_category_reason=emp.get("classification_reason", ""),
+            employer_category_confidence=emp.get("classification_confidence", 0.0),
+            is_cleaning_provider=(cat == EmployerCategory.CLEANING_COMPANY),
+            regions=regions,
+            relevant_vacancies=summaries,
+            signal_score=emp.get("signal_score", 0) or 0,
+        )
+        if agg.signal_score >= config.scoring.threshold_high:
+            agg.signal_level = "HIGH"
+        elif agg.signal_score >= config.scoring.threshold_medium:
+            agg.signal_level = "MEDIUM"
+        else:
+            agg.signal_level = "LOW"
+        employers.append(agg)
+
+    enriched: dict[int, dict] = {}
+    for emp in all_emps:
+        eid = emp["id"]
+        contacts = storage.get_contacts(eid)
+        if contacts or emp.get("enrichment_status"):
+            entry: dict = {"enrichment_status": emp.get("enrichment_status", "")}
+            for c in contacts:
+                ct = c.get("contact_type", "")
+                val = c.get("value", "")
+                if ct == "website":
+                    entry["official_website"] = val
+                elif ct == "phone":
+                    if "official_phone" not in entry:
+                        entry["official_phone"] = val
+                elif ct == "email":
+                    if "official_email" not in entry:
+                        entry["official_email"] = val
+            enriched[eid] = entry
+
+    path = export_cleaning_xlsx(
+        employers=employers,
+        total_raw=len(relevant_vacs),
+        total_relevant=len(relevant_vacs),
+        total_rejected=0,
+        export_dir=config.export_dir,
+        enriched=enriched,
+    )
+    print(f"Exported: {path}")
+    storage.close()
+
+
 def cmd_dashboard(args):
     import subprocess
     dashboard_path = str(Path(__file__).parent / "dashboard" / "app.py")
@@ -314,6 +560,29 @@ def main():
     p_dash = sub.add_parser("dashboard", help="Launch Streamlit dashboard")
     p_dash.add_argument("--port", type=int, default=None, help="Dashboard port")
 
+    p_cc = sub.add_parser(
+        "collect-cleaning", help="Run cleaning-signal data collection",
+    )
+    p_cc.add_argument("--area", nargs="+", help="Override area IDs")
+
+    p_rc = sub.add_parser(
+        "rank-cleaning", help="Show ranked employers from cleaning-signal snapshot",
+    )
+    p_rc.add_argument("--snapshot", type=int, help="Snapshot ID (default: latest)")
+
+    p_ec = sub.add_parser(
+        "enrich-cleaning", help="Enrich high-signal employers with contacts",
+    )
+    p_ec.add_argument("--snapshot", type=int, help="Snapshot ID")
+    p_ec.add_argument("--limit", type=int, default=None, help="Max employers to enrich")
+    p_ec.add_argument("--ttl", type=float, default=24.0, help="TTL in hours")
+
+    p_xc = sub.add_parser(
+        "export-cleaning", help="Export cleaning-signal results to XLSX",
+    )
+    p_xc.add_argument("--snapshot", type=int, help="Snapshot ID")
+    p_xc.add_argument("--format", default="xlsx", help="Export format (default: xlsx)")
+
     args = parser.parse_args()
     _setup_logging(args.verbose)
 
@@ -331,6 +600,14 @@ def main():
         cmd_enrichment_stats(args)
     elif args.command == "dashboard":
         cmd_dashboard(args)
+    elif args.command == "collect-cleaning":
+        cmd_collect_cleaning(args)
+    elif args.command == "rank-cleaning":
+        cmd_rank_cleaning(args)
+    elif args.command == "enrich-cleaning":
+        cmd_enrich_cleaning(args)
+    elif args.command == "export-cleaning":
+        cmd_export_cleaning(args)
     else:
         parser.print_help()
 

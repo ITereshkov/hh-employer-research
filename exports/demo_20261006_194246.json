@@ -1,0 +1,303 @@
+[
+  {
+    "employer_id": 1001,
+    "employer_name": "МБОУ СОШ №42",
+    "employer_type": "SCHOOL",
+    "employer_type_confidence": 0.9,
+    "classification_reason": "Keyword 'сош' matched → SCHOOL",
+    "employer_hh_url": "https://hh.ru/employer/1001",
+    "area_id": 1,
+    "area_name": "Москва",
+    "industry": null,
+    "total_open_vacancies": 3,
+    "relevant_open_vacancies": 2,
+    "latest_relevant_vacancy_date": "2026-10-03T10:00:00+03:00",
+    "days_since_latest": 3,
+    "relevant_vacancies": [
+      {
+        "vacancy_id": "v101",
+        "vacancy_name": "Уборщик помещений",
+        "vacancy_url": null,
+        "published_at": "2026-10-01T10:00:00+03:00",
+        "salary_from": 35000,
+        "salary_to": null,
+        "currency": "RUR",
+        "matched_terms": [
+          "уборщик",
+          "уборщик помещений",
+          "уборщик служебных помещений"
+        ],
+        "match_reason": "Matched 3 term(s): уборщик, уборщик помещений, уборщик служебных помещений",
+        "relevance_score": 0.9523809523809523
+      },
+      {
+        "vacancy_id": "v103",
+        "vacancy_name": "Рабочий по комплексному обслуживанию зданий",
+        "vacancy_url": null,
+        "published_at": "2026-10-03T10:00:00+03:00",
+        "salary_from": 40000,
+        "salary_to": null,
+        "currency": "RUR",
+        "matched_terms": [
+          "рабочий по комплексному обслуживанию",
+          "рабочий по комплексному обслуживанию зданий"
+        ],
+        "match_reason": "Matched 2 term(s): рабочий по комплексному обслуживанию, рабочий по комплексному обслуживанию зданий",
+        "relevance_score": 0.7142857142857143
+      }
+    ],
+    "signal_metrics": {
+      "active_relevant_count": 2,
+      "days_since_latest": 3,
+      "unique_relevant_roles": 2,
+      "fresh_signal": true,
+      "repeat_signal": false,
+      "multi_role_signal": true,
+      "research_signal_score": 6.0,
+      "score_explanation": "fresh(+2), multi-role(+3), multi-vacancy(+1)"
+    }
+  },
+  {
+    "employer_id": 1002,
+    "employer_name": "Гимназия №1505",
+    "employer_type": "GYMNASIUM_LYCEUM",
+    "employer_type_confidence": 0.95,
+    "classification_reason": "Keyword 'гимнази' matched → GYMNASIUM_LYCEUM",
+    "employer_hh_url": "https://hh.ru/employer/1002",
+    "area_id": 1,
+    "area_name": "Москва",
+    "industry": null,
+    "total_open_vacancies": 1,
+    "relevant_open_vacancies": 0,
+    "latest_relevant_vacancy_date": null,
+    "days_since_latest": null,
+    "relevant_vacancies": [],
+    "signal_metrics": {
+      "active_relevant_count": 0,
+      "days_since_latest": null,
+      "unique_relevant_roles": 0,
+      "fresh_signal": false,
+      "repeat_signal": false,
+      "multi_role_signal": false,
+      "research_signal_score": 0.0,
+      "score_explanation": "no signals"
+    }
+  },
+  {
+    "employer_id": 1003,
+    "employer_name": "ГКБ №1 им. Н.И. Пирогова",
+    "employer_type": "HOSPITAL",
+    "employer_type_confidence": 0.95,
+    "classification_reason": "Keyword 'гкб' matched → HOSPITAL",
+    "employer_hh_url": "https://hh.ru/employer/1003",
+    "area_id": 1,
+    "area_name": "Москва",
+    "industry": null,
+    "total_open_vacancies": 3,
+    "relevant_open_vacancies": 1,
+    "latest_relevant_vacancy_date": "2026-10-04T10:00:00+03:00",
+    "days_since_latest": 2,
+    "relevant_vacancies": [
+      {
+        "vacancy_id": "v303",
+        "vacancy_name": "Хозяйственный рабочий",
+        "vacancy_url": null,
+        "published_at": "2026-10-04T10:00:00+03:00",
+        "salary_from": 42000,
+        "salary_to": null,
+        "currency": "RUR",
+        "matched_terms": [
+          "хозяйственный рабочий"
+        ],
+        "match_reason": "Matched 1 term(s): хозяйственный рабочий",
+        "relevance_score": 0.35714285714285715
+      }
+    ],
+    "signal_metrics": {
+      "active_relevant_count": 1,
+      "days_since_latest": 2,
+      "unique_relevant_roles": 1,
+      "fresh_signal": true,
+      "repeat_signal": false,
+      "multi_role_signal": false,
+      "research_signal_score": 2.0,
+      "score_explanation": "fresh(+2)"
+    }
+  },
+  {
+    "employer_id": 1004,
+    "employer_name": "Городская поликлиника №7",
+    "employer_type": "POLYCLINIC",
+    "employer_type_confidence": 0.9,
+    "classification_reason": "Keyword 'поликлиника' matched → POLYCLINIC",
+    "employer_hh_url": "https://hh.ru/employer/1004",
+    "area_id": 1,
+    "area_name": "Москва",
+    "industry": null,
+    "total_open_vacancies": 1,
+    "relevant_open_vacancies": 1,
+    "latest_relevant_vacancy_date": "2026-10-02T10:00:00+03:00",
+    "days_since_latest": 4,
+    "relevant_vacancies": [
+      {
+        "vacancy_id": "v401",
+        "vacancy_name": "Уборщик служебных помещений",
+        "vacancy_url": null,
+        "published_at": "2026-10-02T10:00:00+03:00",
+        "salary_from": 33000,
+        "salary_to": null,
+        "currency": "RUR",
+        "matched_terms": [
+          "уборщик",
+          "уборщик служебных помещений"
+        ],
+        "match_reason": "Matched 2 term(s): уборщик, уборщик служебных помещений",
+        "relevance_score": 0.5952380952380952
+      }
+    ],
+    "signal_metrics": {
+      "active_relevant_count": 1,
+      "days_since_latest": 4,
+      "unique_relevant_roles": 1,
+      "fresh_signal": true,
+      "repeat_signal": false,
+      "multi_role_signal": false,
+      "research_signal_score": 2.0,
+      "score_explanation": "fresh(+2)"
+    }
+  },
+  {
+    "employer_id": 1005,
+    "employer_name": "Родильный дом №4",
+    "employer_type": "MATERNITY",
+    "employer_type_confidence": 0.95,
+    "classification_reason": "Keyword 'родильн' matched → MATERNITY",
+    "employer_hh_url": "https://hh.ru/employer/1005",
+    "area_id": 1,
+    "area_name": "Москва",
+    "industry": null,
+    "total_open_vacancies": 1,
+    "relevant_open_vacancies": 1,
+    "latest_relevant_vacancy_date": "2026-09-28T10:00:00+03:00",
+    "days_since_latest": 8,
+    "relevant_vacancies": [
+      {
+        "vacancy_id": "v501",
+        "vacancy_name": "Подсобный рабочий",
+        "vacancy_url": null,
+        "published_at": "2026-09-28T10:00:00+03:00",
+        "salary_from": 36000,
+        "salary_to": null,
+        "currency": "RUR",
+        "matched_terms": [
+          "подсобный рабочий"
+        ],
+        "match_reason": "Matched 1 term(s): подсобный рабочий",
+        "relevance_score": 0.35714285714285715
+      }
+    ],
+    "signal_metrics": {
+      "active_relevant_count": 1,
+      "days_since_latest": 8,
+      "unique_relevant_roles": 1,
+      "fresh_signal": false,
+      "repeat_signal": false,
+      "multi_role_signal": false,
+      "research_signal_score": 0.0,
+      "score_explanation": "no signals"
+    }
+  },
+  {
+    "employer_id": 1006,
+    "employer_name": "Лицей при МГУ",
+    "employer_type": "GYMNASIUM_LYCEUM",
+    "employer_type_confidence": 0.9,
+    "classification_reason": "Keyword 'лицей' matched → GYMNASIUM_LYCEUM",
+    "employer_hh_url": "https://hh.ru/employer/1006",
+    "area_id": 1,
+    "area_name": "Москва",
+    "industry": null,
+    "total_open_vacancies": 1,
+    "relevant_open_vacancies": 0,
+    "latest_relevant_vacancy_date": null,
+    "days_since_latest": null,
+    "relevant_vacancies": [],
+    "signal_metrics": {
+      "active_relevant_count": 0,
+      "days_since_latest": null,
+      "unique_relevant_roles": 0,
+      "fresh_signal": false,
+      "repeat_signal": false,
+      "multi_role_signal": false,
+      "research_signal_score": 0.0,
+      "score_explanation": "no signals"
+    }
+  },
+  {
+    "employer_id": 1007,
+    "employer_name": "Диагностический центр Здоровье",
+    "employer_type": "MEDICAL_CENTER",
+    "employer_type_confidence": 0.8,
+    "classification_reason": "Keyword 'диагностическ' matched → MEDICAL_CENTER",
+    "employer_hh_url": "https://hh.ru/employer/1007",
+    "area_id": 1,
+    "area_name": "Москва",
+    "industry": null,
+    "total_open_vacancies": 0,
+    "relevant_open_vacancies": 0,
+    "latest_relevant_vacancy_date": null,
+    "days_since_latest": null,
+    "relevant_vacancies": [],
+    "signal_metrics": {
+      "active_relevant_count": 0,
+      "days_since_latest": null,
+      "unique_relevant_roles": 0,
+      "fresh_signal": false,
+      "repeat_signal": false,
+      "multi_role_signal": false,
+      "research_signal_score": 0.0,
+      "score_explanation": "no signals"
+    }
+  },
+  {
+    "employer_id": 1008,
+    "employer_name": "Педагогический колледж №3",
+    "employer_type": "COLLEGE",
+    "employer_type_confidence": 0.9,
+    "classification_reason": "Keyword 'колледж' matched → COLLEGE",
+    "employer_hh_url": "https://hh.ru/employer/1008",
+    "area_id": 1,
+    "area_name": "Москва",
+    "industry": null,
+    "total_open_vacancies": 1,
+    "relevant_open_vacancies": 1,
+    "latest_relevant_vacancy_date": "2026-10-06T10:00:00+03:00",
+    "days_since_latest": 0,
+    "relevant_vacancies": [
+      {
+        "vacancy_id": "v801",
+        "vacancy_name": "Технический работник",
+        "vacancy_url": null,
+        "published_at": "2026-10-06T10:00:00+03:00",
+        "salary_from": 34000,
+        "salary_to": null,
+        "currency": "RUR",
+        "matched_terms": [
+          "технический работник"
+        ],
+        "match_reason": "Matched 1 term(s): технический работник",
+        "relevance_score": 0.35714285714285715
+      }
+    ],
+    "signal_metrics": {
+      "active_relevant_count": 1,
+      "days_since_latest": 0,
+      "unique_relevant_roles": 1,
+      "fresh_signal": true,
+      "repeat_signal": false,
+      "multi_role_signal": false,
+      "research_signal_score": 2.0,
+      "score_explanation": "fresh(+2)"
+    }
+  }
+]
